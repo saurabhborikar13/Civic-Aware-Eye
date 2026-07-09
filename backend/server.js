@@ -21,9 +21,6 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const axios = require('axios');
 const fs = require('fs');
 
-// Import API routes
-const reportsRoutes = require('./routes/reports');
-
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
 const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key]);
@@ -117,19 +114,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mount API routes
-app.use('/api/reports', reportsRoutes);
-
-// File upload middleware
+// NOTE ON FILE UPLOADS
+// --------------------
+// This app uses TWO different upload strategies:
+//   1. `multer` (disk storage) for the complaints route (/api/v1/complaints),
+//      because that route streams the file straight to disk with a generated
+//      filename — see routes/complaints.new.js.
+//   2. `express-fileupload` for the user-photo route (/api/v1/users/photo),
+//      because that controller reads req.files.photo directly.
+//
+// IMPORTANT: express-fileupload must NOT be mounted globally with app.use().
+// Both libraries consume the raw multipart request stream exactly once. If
+// express-fileupload runs first on every request (as it previously did),
+// it fully drains the stream before multer ever sees it — so any multipart
+// POST to /api/v1/complaints (i.e. "submit report" with a photo) hangs or
+// arrives with an empty body, causing "can't post a complaint" / "can't
+// upload an image" symptoms. Scoping express-fileupload to only the
+// /api/v1/users path fixes this without touching either controller.
 const tempUploadDir = process.env.TEMP_UPLOAD_DIR || path.join(__dirname, '../uploads/tmp');
 if (!fs.existsSync(tempUploadDir)) fs.mkdirSync(tempUploadDir, { recursive: true });
-app.use(fileUpload({
+const scopedFileUpload = fileUpload({
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max-file-size
   createParentPath: true,
   useTempFiles: true,
   tempFileDir: tempUploadDir,
+  abortOnLimit: true,
   debug: process.env.NODE_ENV === 'development'
-}));
+});
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -137,8 +148,8 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve uploaded files (photos attached to complaints, user avatars, etc.)
+app.use('/uploads', express.static(uploadsDir));
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -150,8 +161,13 @@ const achievements = require('./routes/achievements');
 
 // Mount routers
 app.use('/api/v1/auth', authRoutes);
+// complaints.new.js handles its own multipart parsing via multer — do NOT
+// put express-fileupload (or anything else that reads the body stream) in
+// front of it.
 app.use('/api/v1/complaints', complaintRoutes);
-app.use('/api/v1/users', userRoutes);
+// Only the users router needs express-fileupload (for PUT /photo), so it's
+// scoped here instead of applied to the whole app.
+app.use('/api/v1/users', scopedFileUpload, userRoutes);
 app.use('/api/geocode', geocode);
 app.use('/api/reports', reports);
 app.use('/api/v1/achievements', achievements);
@@ -204,9 +220,6 @@ app.get('/api/v1/reverse-geocode', async (req, res) => {
     });
   }
 });
-
-// Serve uploads directory
-app.use('/uploads', express.static(uploadsDir));
 
 // Determine frontend static files directory
 const FRONTEND_DIR = process.env.FRONTEND_STATIC_DIR || path.join(__dirname, '../frontend/public');
@@ -306,6 +319,23 @@ app.all('*', (req, res) => {
 // Global error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
+
+  // Translate Multer upload errors (e.g. from routes/complaints.new.js)
+  // into a clear, user-facing message instead of a generic 500.
+  if (err.name === 'MulterError') {
+    const messages = {
+      LIMIT_FILE_SIZE: 'Image is too large. Please upload a photo under 5MB.',
+      LIMIT_UNEXPECTED_FILE: 'Unexpected file field. Please try uploading the photo again.',
+    };
+    return res.status(400).json({
+      status: 'fail',
+      message: messages[err.code] || `Upload failed: ${err.message}`,
+    });
+  }
+  // Custom fileFilter in multer rejects non-image files with a plain Error.
+  if (err.message === 'Only image files are allowed!') {
+    return res.status(400).json({ status: 'fail', message: err.message });
+  }
 
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
