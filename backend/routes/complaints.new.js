@@ -2,14 +2,20 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const Complaint = require('../models/Complaint');
 const { protect } = require('../middleware/auth');
 
 // Configure multer for file uploads
+// Write uploads into the same folder server.js serves at /uploads
+// (project-root/uploads), not a relative "public/uploads" that doesn't exist.
+const UPLOADS_DIR = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'public/uploads/');
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -34,6 +40,15 @@ const upload = multer({
 // @desc    Create a new complaint
 // @route   POST /api/v1/complaints
 // @access  Private
+// Maps a citizen-facing issue type to the municipal department that owns it
+const DEPARTMENT_BY_ISSUE = {
+  pothole: 'Roads & Infrastructure',
+  garbage: 'Sanitation',
+  street_light: 'Electrical',
+  water_leak: 'Water Works',
+  other: 'General',
+};
+
 router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
     const { issueType, description, latitude, longitude, address } = req.body;
@@ -52,6 +67,7 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
       user: req.user.id,
       issueType,
       description,
+      department: DEPARTMENT_BY_ISSUE[issueType] || 'General',
       location: {
         type: 'Point',
         coordinates: [parseFloat(longitude), parseFloat(latitude)],
@@ -106,7 +122,7 @@ router.get('/', async (req, res) => {
     console.error('Error getting complaints:', error);
     res.status(500).json({
       success: false,
-      message: 'Error getting complaints'
+      message: error.message || 'Error getting complaints'
     });
   }
 });

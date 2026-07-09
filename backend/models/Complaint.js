@@ -39,8 +39,8 @@ const complaintSchema = new mongoose.Schema({
   },
   department: {
     type: String,
-    required: [true, 'Department is required'],
-    trim: true
+    trim: true,
+    default: 'General'
   },
   status: {
     type: String,

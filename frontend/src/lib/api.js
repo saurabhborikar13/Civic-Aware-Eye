@@ -25,15 +25,13 @@ api.interceptors.response.use(
   }
 );
 
-// export const uploadUrl = (path) => {
-//   if (!path) return null;
-//   if (path.startsWith('http')) return path;
-//   return `${baseURL}${path}`;
-// };
 export const uploadUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  return `${baseURL}${normalized}`;
+  // Strip any leading slash, then ensure it's rooted under /uploads/
+  // (handles old records saved as a bare filename with no folder prefix).
+  const clean = path.replace(/^\/+/, '');
+  const withFolder = clean.startsWith('uploads/') ? clean : `uploads/${clean}`;
+  return `${baseURL}/${withFolder}`;
 };
 export default api;

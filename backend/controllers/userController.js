@@ -337,29 +337,30 @@ exports.uploadPhoto = asyncHandler(async (req, res, next) => {
 
     // Delete old photo if exists
     if (req.user.photo) {
-      const oldPhotoPath = path.join(uploadsDir, req.user.photo);
+      const oldPhotoPath = path.join(uploadsDir, path.basename(req.user.photo));
       if (fs.existsSync(oldPhotoPath)) {
         fs.unlinkSync(oldPhotoPath);
       }
     }
 
     // Update user and citizen profile
+    const photoPath = `/uploads/${fileName}`;
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { photo: fileName },
+      { photo: photoPath },
       { new: true }
     );
 
     if (user.profile) {
       await CitizenProfile.findByIdAndUpdate(
         user.profile,
-        { profileImage: fileName }
+        { profileImage: photoPath }
       );
     }
 
     res.status(200).json({
       success: true,
-      data: { photo: fileName }
+      data: { photo: photoPath }
     });
   } catch (err) {
     console.error('File upload error:', err);
