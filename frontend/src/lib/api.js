@@ -25,10 +25,15 @@ api.interceptors.response.use(
   }
 );
 
+// export const uploadUrl = (path) => {
+//   if (!path) return null;
+//   if (path.startsWith('http')) return path;
+//   return `${baseURL}${path}`;
+// };
 export const uploadUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
-  return `${baseURL}${path}`;
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${baseURL}${normalized}`;
 };
-
 export default api;
