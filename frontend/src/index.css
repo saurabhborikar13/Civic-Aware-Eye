@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ---- Palette: "Municipal Docket" ---- */
+  --color-ink: #12262c;
+  --color-ink-soft: #24414a;
+  --color-paper: #edece4;
+  --color-paper-dim: #e2e1d7;
+  --color-card: #f8f7f1;
+  --color-line: #12262c1f;
+
+  --color-amber: #e6a13a;
+  --color-amber-dark: #c17f22;
+  --color-teal: #1f6f63;
+  --color-teal-dark: #14504a;
+
+  --color-status-pending: #e6a13a;
+  --color-status-progress: #3b6ea8;
+  --color-status-resolved: #2f8f5b;
+  --color-status-rejected: #c1473a;
+
+  --font-display: 'Archivo Expanded', 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-amber);
+  color: var(--color-ink);
+}
+
+.docket-notch {
+  position: relative;
+}
+.docket-notch::before,
+.docket-notch::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: var(--color-paper);
+  border-radius: 999px;
+  z-index: 2;
+}
+.docket-notch::before { left: -10px; }
+.docket-notch::after { right: -10px; }
+
+.docket-perf {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-line) 0,
+    var(--color-line) 6px,
+    transparent 6px,
+    transparent 14px
+  );
+  height: 1px;
+}
+
+.stamp {
+  font-family: var(--font-display);
+  border: 2.5px solid currentColor;
+  border-radius: 6px;
+  letter-spacing: 0.08em;
+  transform: rotate(-4deg);
+  position: relative;
+}
+.stamp::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.5;
+}
+
+.blueprint-grid {
+  background-image:
+    linear-gradient(var(--color-line) 1px, transparent 1px),
+    linear-gradient(to right, var(--color-line) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--color-paper-dim);
+}
