@@ -10,15 +10,18 @@ const transporter = nodemailer.createTransport({
   secure: process.env.SMTP_SECURE === 'true',
   auth: {
     user: process.env.SMTP_USER,
+
+
     pass: process.env.SMTP_PASS
   }
 });
+
 
 exports.sendComplaintEmail = async (to, subject, html) => {
   try {
     console.log('Preparing to send email:', { to, subject });
     
-    // Simple email options with explicit content type
+    // Simple email options with explicit conteype
     const mailOptions = {
       from: process.env.SMTP_FROM,
       to,
